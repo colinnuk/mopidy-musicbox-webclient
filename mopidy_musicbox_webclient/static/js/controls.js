@@ -1,52 +1,75 @@
 /********************************************************
  * play tracks from a browse list
  *********************************************************/
-function playBrowsedTracks(addtoqueue, trackIndex) {
+function playBrowsedTracks(addtoqueue, trackid) {
+
+    //stop directly, for user feedback.
+    if (addtoqueue == PLAY_ALL) {
+        mopidy.playback.stop();
+        mopidy.tracklist.clear();
+    }
     $('#popupBrowse').popup('close');
     toast('Loading...');
 
-    if (typeof trackIndex === 'undefined') {
-        trackIndex = $('#popupBrowse').data("tlid");
-    }
-    var trackUri = browseTracks[trackIndex].uri;
+    trackid = typeof trackid !== 'undefined' ? trackid : $('#popupBrowse').data("track");
 
-    // For radio streams we just add the selected URI.
-    // TODO: Why?
-    //if (isStreamUri(trackUri)) {
-        //mopidy.tracklist.add(null, null, trackUri);
-        //return false;
-    //}
-
-    switch (addtoqueue) {
-        case PLAY_NOW:
-        case PLAY_NEXT:
-            mopidy.tracklist.index(songdata).then(function(currentIndex) {
-                mopidy.tracklist.add(null, currentIndex + 1, trackUri).then(function(tlTracks) {
-                    if (addtoqueue == PLAY_NOW) {
-                        mopidy.playback.play(tlTracks[0]);
+    var isStream = isStreamUri(trackid);
+    //only add one uri for dirble, tunein; otherwise add all tracks
+    if (isStream) {
+        mopidy.tracklist.add(null, null, trackid);
+    } else {
+        switch (addtoqueue) {
+            case PLAY_NOW:
+            case PLAY_NEXT:
+                //find track that is playing
+                for (var playing = 0; playing < currentplaylist.length; playing++) {
+                    if (currentplaylist[playing].uri == songdata.uri) {
+                        break;
                     }
+                }
+                mopidy.tracklist.add(null, playing + 1, trackid);
+                break;
+            case ADD_THIS_BOTTOM:
+                mopidy.tracklist.add(null, null, trackid);
+                break;
+            case ADD_ALL_BOTTOM:
+            case PLAY_ALL:
+                //add selected item to the playlist
+                var allBrowsed = [];
+                $('.browsetrack').each(function() {
+                    allBrowsed.push(this.id);
                 });
-            });
-            break;
-        case ADD_THIS_BOTTOM:
-            mopidy.tracklist.add(null, null, trackUri);
-            break;
-        case ADD_ALL_BOTTOM:
-            mopidy.tracklist.add(browseTracks);
-            break;
-        case PLAY_ALL:
-            mopidy.tracklist.clear();
-            // TODO: Use uris parameter in v1.0 API (faster?).
-            mopidy.tracklist.add(browseTracks).then(function(tlTracks) {
-                mopidy.playback.play(tlTracks[trackIndex]);
-            });
-            break;
-        default:
-            break;
+                mopidy.tracklist.add(null, null, null, allBrowsed);
+                break;
+            default:
+                break;
+        }
+
     }
+
+    //play selected item
+    if (addtoqueue == PLAY_ALL) {
+        mopidy.playback.stop();
+        mopidy.tracklist.getTlTracks().then(
+            function(tltracks) {
+                for(var i = 0; i < tltracks.length; i++)
+                {
+                    if(tltracks[i].track.uri == trackid)
+                    {
+                        mopidy.playback.play(tltracks[i]);
+                        break;
+                    }
+                }
+            }
+        );
+    } else if (addtoqueue == PLAY_NOW) {
+        mopidy.playback.stop();
+        mopidy.playback.next();
+        mopidy.playback.play();
+    }
+
     return false;
 }
-
 
 /********************************************************
  * play an uri from a tracklist
