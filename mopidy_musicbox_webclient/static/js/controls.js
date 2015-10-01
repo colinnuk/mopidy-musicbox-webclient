@@ -150,6 +150,9 @@ function playTrackByUri(track_uri, playlist_uri) {
     toast('Loading...');
 
     var func;
+    if(playlist_uri == 'trackresultscache')
+        playlist_uri = track_uri;
+
     func = mopidy.tracklist.add(null, null, playlist_uri);
     func.then(
         function(tltracks) {
